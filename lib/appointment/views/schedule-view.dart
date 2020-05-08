@@ -7,7 +7,7 @@
 //
 // dart
 import 'dart:io';
-
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:core';
 // package
 
@@ -176,33 +176,28 @@ class _ScheduleViewState extends State<ScheduleView> {
   }
 
   Future _cancelApptUpdate() async {
-       try {
+    try {
       var response =
-          await Provider.of<ApptProvider>(context, listen: false)
-              .putCancelAppt(
+          await Provider.of<ApptProvider>(context, listen: false).putCancelAppt(
         branchId: _companyInfo.apptCurrentBranch.locationId,
         companyId: _companyInfo.companyId,
         body: {
-          'appointmentId': _companyInfo
-              .apptCurrentBranch.userAppointment.appointmnetId
+          'appointmentId':
+              _companyInfo.apptCurrentBranch.userAppointment.appointmnetId
         },
       );
       if (response)
-        ErrorDialog.showErrorDialog(
-            ctx: context, message: 'Successful');
-    
-      
+        ErrorDialog.showErrorDialog(ctx: context, message: 'Successful');
     } on HttpMessageException catch (error) {
-      ErrorDialog.showErrorDialog(
-          ctx: context, message: error.toString());
+      ErrorDialog.showErrorDialog(ctx: context, message: error.toString());
     } catch (error) {
-      ErrorDialog.showErrorDialog(
-          ctx: context, message: error.toString());
+      ErrorDialog.showErrorDialog(ctx: context, message: error.toString());
     }
   }
 
-  Container _buildBranchPickerView() {
+  Container _buildBranchPickerView(double width) {
     return Container(
+      width: width,
       padding: EdgeInsets.all(8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.start,
@@ -219,8 +214,9 @@ class _ScheduleViewState extends State<ScheduleView> {
     );
   }
 
-  Container _buildServicesPickerView() {
+  Container _buildServicesPickerView(double width) {
     return Container(
+      width: width,
       padding: const EdgeInsets.all(8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.start,
@@ -239,8 +235,9 @@ class _ScheduleViewState extends State<ScheduleView> {
     );
   }
 
-  Widget _buildDate() {
+  Widget _buildDate(double width) {
     return Container(
+      width: width,
       padding: const EdgeInsets.all(8.0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.start,
@@ -257,9 +254,8 @@ class _ScheduleViewState extends State<ScheduleView> {
   }
 
   GestureDetector _buildEmployeeItem(
-      BuildContext context, int i, List<ApptEmployeeStruct> employeeList) {
-    final itemHeight = (MediaQuery.of(context).size.height / 4);
-    final itemWidth = MediaQuery.of(context).size.width * 0.9;
+      BuildContext context, int i, List<ApptEmployeeStruct> employeeList, double width) {
+    
     final currentBranch = _companyInfo.apptCurrentBranch != null
         ? _companyInfo.apptCurrentBranch
         : null;
@@ -280,7 +276,7 @@ class _ScheduleViewState extends State<ScheduleView> {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(5),
                 child: Container(
-                  width: itemWidth / 2,
+                  width: width,
                   child: Row(
                     children: <Widget>[
                       CircleAvatar(
@@ -301,7 +297,7 @@ class _ScheduleViewState extends State<ScheduleView> {
             ),
             Expanded(
                 child: Container(
-              width: (itemWidth / 2) * .8,
+              width: (width) * .8,
               child: ListView.builder(
                 shrinkWrap: true,
                 physics: ScrollPhysics(),
@@ -415,7 +411,7 @@ class _ScheduleViewState extends State<ScheduleView> {
     );
   }
 
-  Widget _buildEmployeeList() {
+  Widget _buildEmployeeList(double width) {
     List<ApptEmployeeStruct> employeeList = _selectedService == null
         ? _companyInfo.apptCurrentBranch.employees
             .where((s) => s.employeeAvlWeekDays[_selectedWeekday - 1])
@@ -432,7 +428,7 @@ class _ScheduleViewState extends State<ScheduleView> {
         child: ListView.builder(
           scrollDirection: Axis.horizontal,
           itemCount: employeeList.length,
-          itemBuilder: (_, i) => _buildEmployeeItem(context, i, employeeList),
+          itemBuilder: (_, i) => _buildEmployeeItem(context, i, employeeList, width),
         ),
       ),
     );
@@ -598,33 +594,67 @@ class _ScheduleViewState extends State<ScheduleView> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width * 0.9;
+    final screenhight = MediaQuery.of(context).size.height;
+
     return Scaffold(
       appBar: AppBar(
         title: Row(
           children: <Widget>[
-            
-            _appBarimage.length > 1 ? Flexible(child: Image.network(_appBarimage,width: 40,)) : Container(),
-            SizedBox(width: 20,),
+            _appBarimage.length > 1
+                ? Flexible(
+                    child: Image.network(
+                    _appBarimage,
+                    width: 40,
+                  ))
+                : Container(),
+            SizedBox(
+              width: 20,
+            ),
             Text(_appBarTitle),
           ],
         ),
-        
       ),
       body: _isLoading
           ? Center(
               child: CircularProgressIndicator(),
             )
           : Center(
-              child: Column(
-                children: <Widget>[
-                  _userHasAppt ? _buildAlertApptContainer() : Container(),
-                  _buildBranchPickerView(),
-                  _buildDate(),
-                  _buildServicesPickerView(),
-                  _buildEmployeeList()
-                ],
-              ),
+              child: kIsWeb && screenWidth >= screenhight
+                  ? _buildWebScreen(screenWidth)
+                  : _buildPhoneScreen(screenWidth),
             ),
     );
+  }
+
+  Column _buildPhoneScreen(double screenWidth) {
+    return Column(
+                    children: <Widget>[
+                      _userHasAppt ? _buildAlertApptContainer() : Container(),
+                      _buildBranchPickerView(screenWidth),
+                      _buildDate(screenWidth),
+                      _buildServicesPickerView(screenWidth),
+                      _buildEmployeeList(screenWidth/2)
+                    ],
+                  );
+  }
+
+  Column _buildWebScreen(double screenWidth) {
+    return Column(
+                    children: <Widget>[
+                      _userHasAppt ? _buildAlertApptContainer() : Container(),
+                      SizedBox(height: 20,),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: <Widget>[
+                          _buildBranchPickerView(screenWidth/3),
+                          _buildDate(screenWidth/3),
+                          _buildServicesPickerView(screenWidth/3),
+                        ],
+                      ),
+                      SizedBox(height: 20,),
+                      _buildEmployeeList(screenWidth/5)
+                    ],
+                  );
   }
 }
