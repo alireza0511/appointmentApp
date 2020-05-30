@@ -51,6 +51,7 @@ class _ScheduleViewState extends State<ScheduleView> {
   ApptServiceStruct _selectedService;
   int _selectedWeekday = DateTime.now().weekday;
   bool _userHasAppt = false;
+  ApptEmployeeStruct _selectedEmployee;
 
   @override
   void didChangeDependencies() async {
@@ -89,6 +90,7 @@ class _ScheduleViewState extends State<ScheduleView> {
         _userHasAppt = _companyInfo.apptCurrentBranch.userAppointment.hasAppt;
         _appBarTitle = _companyInfo.companyName;
         _appBarimage = _companyInfo.companyLogo;
+        _selectedEmployee = _companyInfo.apptCurrentBranch.employees[0];
       });
     } on HttpException catch (error) {
       ErrorDialog.showErrorDialog(
@@ -124,57 +126,6 @@ class _ScheduleViewState extends State<ScheduleView> {
     }
   }
 
-  Container _buildAlertApptContainer() {
-    var theTime = _companyInfo.apptCurrentBranch.userAppointment.startTime;
-    var formatterdate = new DateFormat.yMMMMEEEEd().add_jm();
-    String theTimeString = formatterdate.format(theTime);
-
-    return Container(
-      color: Colors.red,
-      child: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Text(
-              'Appointment Details',
-              style:
-                  TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-            ),
-            SizedBox(
-              height: 6,
-            ),
-            Text(
-              'You already set an appointment on ${theTimeString}.',
-              style: TextStyle(
-                color: Colors.white,
-              ),
-            ),
-            SizedBox(
-              height: 12,
-            ),
-            FlatButton(
-              onPressed: () async {
-                setState(() {
-                  _userHasAppt = false;
-                });
-
-                await _cancelApptUpdate();
-              },
-              child: Text(
-                'Cancel',
-                style: TextStyle(
-                  color: Colors.red,
-                ),
-              ),
-              color: Colors.white,
-            )
-          ],
-        ),
-      ),
-    );
-  }
-
   Future _cancelApptUpdate() async {
     try {
       var response =
@@ -195,46 +146,6 @@ class _ScheduleViewState extends State<ScheduleView> {
     }
   }
 
-  Container _buildBranchPickerView(double width) {
-    return Container(
-      width: width,
-      padding: EdgeInsets.all(8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.start,
-        children: <Widget>[
-          const Text('Branch:     '),
-          UiConstants.hor12SizedBox,
-          Expanded(
-            child: UiConstants.outLineBtn(
-                onPress: _buildBranchPicker,
-                btnName: _selectedBranch.locationAddress),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Container _buildServicesPickerView(double width) {
-    return Container(
-      width: width,
-      padding: const EdgeInsets.all(8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.start,
-        children: <Widget>[
-          const Text('Services:     '),
-          UiConstants.hor12SizedBox,
-          Expanded(
-            child: UiConstants.outLineBtn(
-                onPress: _buildServicePicker,
-                btnName: _selectedService != null
-                    ? _selectedService.serviceName
-                    : 'Please select a services'),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildDate(double width) {
     return Container(
       width: width,
@@ -253,13 +164,26 @@ class _ScheduleViewState extends State<ScheduleView> {
     );
   }
 
-  GestureDetector _buildEmployeeItem(
-      BuildContext context, int i, List<ApptEmployeeStruct> employeeList, double width) {
-    
-    final currentBranch = _companyInfo.apptCurrentBranch != null
-        ? _companyInfo.apptCurrentBranch
-        : null;
-    final employee = employeeList[i];
+  Widget iconBtn({IconData btnIcon, int dateCount}) {
+    return IconButton(
+        icon: Icon(
+          btnIcon,
+          color: Colors.blueAccent,
+          size: 10,
+        ),
+        onPressed: () {
+          setState(() {
+            var formatter = new DateFormat.yMd().add_EEEE();
+            _selectedApptDate =
+                _selectedApptDate.add(new Duration(days: dateCount));
+            _selectedWeekday = _selectedApptDate.weekday;
+            _selectedApptDateString = formatter.format(_selectedApptDate);
+          });
+        });
+  }
+
+  GestureDetector _buildEmployeeItem(BuildContext context, double width) {
+    final employee = _selectedEmployee; //employeeList[i];
     final employeeFirstName = employee.firstName ?? ' ';
     final employeeLastName = employee.lastName ?? ' ';
 
@@ -296,23 +220,34 @@ class _ScheduleViewState extends State<ScheduleView> {
               ),
             ),
             Expanded(
-                child: Container(
-              width: (width) * .8,
-              child: ListView.builder(
-                shrinkWrap: true,
-                physics: ScrollPhysics(),
-                itemCount: employee.timeSlot.length,
-                itemBuilder: (_, j) => _buildTimeSlotItem(context, j, employee),
+              child: Container(
+                child: GridView.builder(
+                  shrinkWrap: true,
+                  physics: ScrollPhysics(),
+                  padding: const EdgeInsets.all(8),
+                  itemCount: employee.timeSlot.length,
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      crossAxisSpacing: 8,
+                      mainAxisSpacing: 8,
+                      childAspectRatio: 2.5),
+                  itemBuilder: (ctx, j) =>
+                      _buildTimeSlotItem(context, j, employee),
+                ),
               ),
-            )),
+            ),
           ],
         ),
       ),
     );
   }
 
-  void _buildSubmitDialog(BuildContext context, Map<String, dynamic> body) {
-    showDialog(context: context, builder: (ctx) => SetApptWidget(body: body));
+  Future<bool> _buildSubmitDialog(
+      BuildContext context, Map<String, dynamic> body) async {
+    bool wasSuccess = false;
+    wasSuccess = await showDialog<bool>(
+        context: context, builder: (ctx) => SetApptWidget(body: body));
+    return wasSuccess;
   }
 
   Widget _buildTimeSlotItem(context, i, ApptEmployeeStruct employeeStruct) {
@@ -347,23 +282,10 @@ class _ScheduleViewState extends State<ScheduleView> {
     userApptAtCurrentSlotTime = employeeStruct.appointments != null
         ? employeeStruct.appointments.where((w) =>
             w.startTime.isAtSameMomentAs(selecteTimeWithSlot) ||
-            (w.startTime.isBefore(selecteTimeWithSlot) &&
-                w.endTimeExpected.isAfter(selecteTimeWithSlot)) ||
+            (w.endTimeExpected.isBefore(selecteTimeWithSlot) &&
+                w.startTime.isAfter(selecteTimeWithSlot)) ||
             w.endTimeExpected.isAtSameMomentAs(selecteTimeWithSlot))
         : [];
-
-    // if (userApptAtCurrentSlotTime != null) {
-    //   if (userApptAtCurrentSlotTime.length >= 1) {
-    //     print('selecteTimeWithSlot \n');
-    //     print(selecteTimeWithSlot);
-
-    //     print('startTime \n');
-    //     print(employeeStruct.appointments[0].startTime.toString());
-
-    //     print('endTimeExpected \n');
-    //     print(employeeStruct.appointments[0].endTimeExpected.toString());
-    //   }
-    // }
 
     bool isTimeSlotActive = _selectedApptDate.day == DateTime.now().day
         ? hourNow < theTimeSlot.hour
@@ -382,11 +304,22 @@ class _ScheduleViewState extends State<ScheduleView> {
     };
 
     return GestureDetector(
-      onTap: () {
-        if (isTimeSlotActive) _buildSubmitDialog(context, body);
+      onTap: () async {
+        if (isTimeSlotActive) {
+          var respoce = await _buildSubmitDialog(context, body);
+
+          setState(() {
+            isTimeSlotActive = !respoce;
+            _isLoading = true;
+          });
+
+          if (respoce) {
+            _fetchCompany();
+          }
+        }
       },
       child: Card(
-        color: isTimeSlotActive ? Colors.green : Colors.grey,
+        color: isTimeSlotActive ? Colors.blueAccent : Colors.grey,
         child: Container(
           margin: const EdgeInsets.all(10.0),
           child: ClipRRect(
@@ -394,14 +327,10 @@ class _ScheduleViewState extends State<ScheduleView> {
             child: Stack(
               children: <Widget>[
                 Center(
-                  child: Column(children: [
-                    Container(
-                      child: Text(
-                        slotTimeString,
-                        style: TextStyle(color: Colors.white),
-                      ),
-                    ),
-                  ]),
+                  child: Text(
+                    slotTimeString,
+                    style: TextStyle(color: Colors.white),
+                  ),
                 )
               ],
             ),
@@ -411,24 +340,37 @@ class _ScheduleViewState extends State<ScheduleView> {
     );
   }
 
-  Widget _buildEmployeeList(double width) {
-    List<ApptEmployeeStruct> employeeList = _selectedService == null
-        ? _companyInfo.apptCurrentBranch.employees
-            .where((s) => s.employeeAvlWeekDays[_selectedWeekday - 1])
-            .toList()
-        : (_companyInfo.apptCurrentBranch.employees
-            .where((s) =>
-                s.services.contains(_selectedService.serviceId) &&
-                s.employeeAvlWeekDays[_selectedWeekday - 1])
-            .toList());
+  Widget _buildEmloyeeAvatarList(
+      BuildContext context, int i, List<ApptEmployeeStruct> employeeList) {
+    final currentBranch = _companyInfo.apptCurrentBranch != null
+        ? _companyInfo.apptCurrentBranch
+        : null;
+    final employee = employeeList[i];
+    final employeeFirstName = employee.firstName ?? ' ';
+    final employeeLastName = employee.lastName ?? ' ';
 
-    return Expanded(
-      child: Container(
-        color: ColorConstants.backgroundColor,
-        child: ListView.builder(
-          scrollDirection: Axis.horizontal,
-          itemCount: employeeList.length,
-          itemBuilder: (_, i) => _buildEmployeeItem(context, i, employeeList, width),
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _selectedEmployee = employee;
+        });
+        // Navigator.of(context).pushNamed(DetailPromoViewCons.routeName,
+        //     arguments: promotionsData[i]);
+      },
+      child: CircleAvatar(
+        backgroundColor: employee == _selectedEmployee
+            ? Colors.blueAccent
+            : ColorConstants.backgroundColor,
+        minRadius: 28,
+        maxRadius: 33,
+        child: CircleAvatar(
+          minRadius: 25,
+          maxRadius: 30,
+          backgroundImage: employee != null
+              ? NetworkImage(employee.profileImg)
+              : AssetImage('assets/images/default.jpg'),
+          backgroundColor: Colors.brown.shade800,
+          //child: Text('Alireza khakpour'),
         ),
       ),
     );
@@ -462,29 +404,6 @@ class _ScheduleViewState extends State<ScheduleView> {
       }
     });
   }
-
-  // void _buildTimePicker(DateTime selecteTime) {
-  //   showTimePicker(context: context, initialTime: TimeOfDay.now())
-  //       .then<TimeOfDay>((TimeOfDay onValue) {
-  //     if (onValue != null) {
-  //       setState(() {
-  //         //_promoForm[JazzbKeyConstants.date1] = value;
-
-  //         _selectedApptDate = DateTime(
-  //             _selectedApptDate.year,
-  //             _selectedApptDate.month,
-  //             _selectedApptDate.day,
-  //             onValue.hour,
-  //             onValue.minute);
-
-  //         var formatter = new DateFormat.yMd().add_jm();
-  //         // String formatted = formatter.format(now);
-
-  //         _selectedApptDateString = formatter.format(_selectedApptDate);
-  //       });
-  //     }
-  //   });
-  // }
 
   void _sheetActionView(PickerViewType type) {
     containerForSheet<Map<String, dynamic>>(
@@ -592,6 +511,193 @@ class _ScheduleViewState extends State<ScheduleView> {
     });
   }
 
+  Widget _buildEmployeeList(double width) {
+    List<ApptEmployeeStruct> employeeList = _selectedService == null
+        ? _companyInfo.apptCurrentBranch.employees
+            .where((s) => s.employeeAvlWeekDays[_selectedWeekday - 1])
+            .toList()
+        : (_companyInfo.apptCurrentBranch.employees
+            .where((s) =>
+                s.services.contains(_selectedService.serviceId) &&
+                s.employeeAvlWeekDays[_selectedWeekday - 1])
+            .toList());
+
+    return Expanded(
+      child: Container(
+        color: ColorConstants.backgroundColor,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Container(
+                child: _buildEmployeeItem(context, width),
+              ),
+            ),
+            Container(
+              width: width / 2.4,
+              child: ListView.builder(
+                  scrollDirection: Axis.vertical,
+                  itemCount: employeeList.length,
+                  itemBuilder: (_, i) =>
+                      _buildEmloyeeAvatarList(context, i, employeeList)),
+            ),
+          ],
+        ),
+
+        // ListView.builder(
+        //   scrollDirection: Axis.horizontal,
+        //   itemCount: employeeList.length,
+        //   itemBuilder: (_, i) =>
+        //       _buildEmployeeItem(context, i, employeeList, width),
+        // ),
+      ),
+    );
+  }
+
+  Widget _buildDatePhone(double width) {
+    return Container(
+      width: width,
+      padding: const EdgeInsets.all(8.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.start,
+        children: <Widget>[
+          iconBtn(btnIcon: Icons.arrow_back_ios, dateCount: -1),
+          Expanded(
+            child: UiConstants.outLineBtn(
+                onPress: _buildDatePicker, btnName: _selectedApptDateString),
+          ),
+          iconBtn(btnIcon: Icons.arrow_forward_ios, dateCount: 1),
+        ],
+      ),
+    );
+  }
+
+  Container _buildServicesPickerView(double width) {
+    return Container(
+      width: width,
+      padding: const EdgeInsets.all(8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.start,
+        children: <Widget>[
+          const Text('Services:     '),
+          UiConstants.hor12SizedBox,
+          Expanded(
+            child: UiConstants.outLineBtn(
+                onPress: _buildServicePicker,
+                btnName: _selectedService != null
+                    ? _selectedService.serviceName
+                    : 'Please select a services'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Container _buildBranchPickerView(double width) {
+    return Container(
+      width: width,
+      padding: EdgeInsets.all(8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.start,
+        children: <Widget>[
+          const Text('Branch:     '),
+          UiConstants.hor12SizedBox,
+          Expanded(
+            child: UiConstants.outLineBtn(
+                onPress: _buildBranchPicker,
+                btnName: _selectedBranch.locationAddress),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Container _buildAlertApptContainer() {
+    var theTime = _companyInfo.apptCurrentBranch.userAppointment.startTime;
+    var formatterdate = new DateFormat.yMMMMEEEEd().add_jm();
+    String theTimeString = formatterdate.format(theTime);
+
+    return Container(
+      color: Colors.red,
+      child: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              'Appointment Details',
+              style:
+                  TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            ),
+            SizedBox(
+              height: 6,
+            ),
+            Text(
+              'You already set an appointment on ${theTimeString}.',
+              style: TextStyle(
+                color: Colors.white,
+              ),
+            ),
+            SizedBox(
+              height: 12,
+            ),
+            FlatButton(
+              onPressed: () async {
+                setState(() {
+                  _userHasAppt = false;
+                });
+
+                await _cancelApptUpdate();
+              },
+              child: Text(
+                'Cancel',
+                style: TextStyle(
+                  color: Colors.red,
+                ),
+              ),
+              color: Colors.white,
+            )
+          ],
+        ),
+      ),
+    );
+  }
+
+  Column _buildPhoneScreen(double screenWidth) {
+    return Column(
+      children: <Widget>[
+        _userHasAppt ? _buildAlertApptContainer() : Container(),
+        _buildBranchPickerView(screenWidth),
+        _buildServicesPickerView(screenWidth),
+        _buildDatePhone(screenWidth),
+        _buildEmployeeList(screenWidth / 2)
+      ],
+    );
+  }
+
+  Column _buildWebScreen(double screenWidth) {
+    return Column(
+      children: <Widget>[
+        _userHasAppt ? _buildAlertApptContainer() : Container(),
+        SizedBox(
+          height: 20,
+        ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: <Widget>[
+            _buildBranchPickerView(screenWidth / 3),
+            _buildDate(screenWidth / 3),
+            _buildServicesPickerView(screenWidth / 3),
+          ],
+        ),
+        SizedBox(
+          height: 20,
+        ),
+        _buildEmployeeList(screenWidth / 5)
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width * 0.9;
@@ -626,35 +732,27 @@ class _ScheduleViewState extends State<ScheduleView> {
             ),
     );
   }
-
-  Column _buildPhoneScreen(double screenWidth) {
-    return Column(
-                    children: <Widget>[
-                      _userHasAppt ? _buildAlertApptContainer() : Container(),
-                      _buildBranchPickerView(screenWidth),
-                      _buildDate(screenWidth),
-                      _buildServicesPickerView(screenWidth),
-                      _buildEmployeeList(screenWidth/2)
-                    ],
-                  );
-  }
-
-  Column _buildWebScreen(double screenWidth) {
-    return Column(
-                    children: <Widget>[
-                      _userHasAppt ? _buildAlertApptContainer() : Container(),
-                      SizedBox(height: 20,),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
-                        children: <Widget>[
-                          _buildBranchPickerView(screenWidth/3),
-                          _buildDate(screenWidth/3),
-                          _buildServicesPickerView(screenWidth/3),
-                        ],
-                      ),
-                      SizedBox(height: 20,),
-                      _buildEmployeeList(screenWidth/5)
-                    ],
-                  );
-  }
 }
+
+// void _buildTimePicker(DateTime selecteTime) {
+//   showTimePicker(context: context, initialTime: TimeOfDay.now())
+//       .then<TimeOfDay>((TimeOfDay onValue) {
+//     if (onValue != null) {
+//       setState(() {
+//         //_promoForm[JazzbKeyConstants.date1] = value;
+
+//         _selectedApptDate = DateTime(
+//             _selectedApptDate.year,
+//             _selectedApptDate.month,
+//             _selectedApptDate.day,
+//             onValue.hour,
+//             onValue.minute);
+
+//         var formatter = new DateFormat.yMd().add_jm();
+//         // String formatted = formatter.format(now);
+
+//         _selectedApptDateString = formatter.format(_selectedApptDate);
+//       });
+//     }
+//   });
+// }

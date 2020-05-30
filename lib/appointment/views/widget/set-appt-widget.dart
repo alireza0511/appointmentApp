@@ -77,7 +77,7 @@ class _SetApptWidgetState extends State<SetApptWidget> {
       if (response) {
         var userTapped = await ErrorDialog.showErrorDismissDialog(
             ctx: context, title: '', message: 'Successful!');
-        if (userTapped) Navigator.of(context).pop();
+        if (userTapped) Navigator.pop(context, true);
       }
       //Navigator.of(context).pop();
     } on HttpMessageException catch (error) {
