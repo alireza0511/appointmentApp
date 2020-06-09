@@ -10,6 +10,7 @@
 import 'dart:convert';
 import 'dart:io';
 // package
+import 'package:appointment_app/appointment/models/appt-user-struct.dart';
 import 'package:appointment_app/appointment/models/helper/appt-constant.dart';
 import '../models/helper/http-exception.dart';
 import '../models/appt-company-struct.dart';
@@ -20,8 +21,11 @@ import 'package:http/http.dart' as http;
 
 class ApptProvider with ChangeNotifier {
   ApptCompanyStruct _item;
-  // List<BranchStructCons> _items = [];
+  
+  final ApptUserStruct _user;
 
+  ApptProvider(this._user,this._item);
+  
   ApptCompanyStruct get compnayInfo {
     return _item;
   }
@@ -32,10 +36,10 @@ class ApptProvider with ChangeNotifier {
     var url = Uri.https(
         'node.jazzb.com','/appointment/user/employee/'+ companyId.toString());
 
-    print(url);
+    print(ApptConstants.createHeader(_user.token));
 
     try {
-      final response = await http.get(url);
+      final response = await http.get(url, headers: ApptConstants.createHeader(_user.token));
 
       if (response.statusCode < 200 || response.statusCode > 299) {
         Map<String, dynamic> body = json.decode(response.body);
@@ -120,7 +124,7 @@ class ApptProvider with ChangeNotifier {
 
     try {
       final response = await http.post(url, body: json.encode(body) ,headers: ApptConstants.createHeader());
-print(response.body);
+      print(response.body);
       if (response.statusCode < 200 || response.statusCode > 299) {
         Map<String, dynamic> body = json.decode(response.body);
         print(body);

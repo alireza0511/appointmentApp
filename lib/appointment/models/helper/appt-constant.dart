@@ -6,11 +6,11 @@ class ApptConstants {
   static const String responseKey = 'response';
 
   static Map<String, String> createHeader(
-      [String token = " ", List<Map<String, dynamic>> analytic]) {
+      [String token = " "]) {
     return {
       'Content-Type': 'application/json',
-      HttpHeaders.authorizationHeader: 'Bearer $token',
-      'analytic': analytic.toString()
+      HttpHeaders.authorizationHeader: 'Bearer $token'
+      
     };
   }
 }
