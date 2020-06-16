@@ -52,6 +52,9 @@ class _ScheduleViewState extends State<ScheduleView> {
   int _selectedWeekday = DateTime.now().weekday;
   bool _userHasAppt = false;
   ApptEmployeeStruct _selectedEmployee;
+  TextEditingController txtFldController_services = TextEditingController();
+  TextEditingController txtFldController_branch = TextEditingController();
+
 
   @override
   void didChangeDependencies() async {
@@ -81,7 +84,7 @@ class _ScheduleViewState extends State<ScheduleView> {
 
   void _fetchCompany() async {
     try {
-      var response = await Provider.of<ApptProvider>(context)
+      var response = await Provider.of<ApptProvider>(context,listen: false)
           .fetchApptCompany(29.2344, -95.3434, 100, 1000);
       setState(() {
         _isLoading = false;
@@ -91,6 +94,8 @@ class _ScheduleViewState extends State<ScheduleView> {
         _appBarTitle = _companyInfo.companyName;
         _appBarimage = _companyInfo.companyLogo;
         _selectedEmployee = _companyInfo.apptCurrentBranch.employees[0];
+        txtFldController_services.text = 'ALL';
+        txtFldController_branch.text = _selectedBranch.locationAddress;
       });
     } on HttpException catch (error) {
       ErrorDialog.showErrorDialog(
@@ -106,7 +111,7 @@ class _ScheduleViewState extends State<ScheduleView> {
       _isLoading = true;
     });
     try {
-      var response = await Provider.of<ApptProvider>(context)
+      var response = await Provider.of<ApptProvider>(context, listen: false)
           .fetchApptCompanyDetail(
               lat: 29.2344,
               lng: -95.3434,
@@ -300,7 +305,7 @@ class _ScheduleViewState extends State<ScheduleView> {
       'startTime': selecteTimeWithSlot.toIso8601String(),
       'locationSlotTime': _companyInfo.apptCurrentBranch.locationSlotTime,
       'employeeId': employeeStruct.employeeId,
-      'service': _selectedService
+      'service': _selectedService == null ? 'All' : _selectedService
     };
 
     return GestureDetector(
@@ -486,6 +491,7 @@ class _ScheduleViewState extends State<ScheduleView> {
 
           setState(() {
             _selectedBranch = value['data'];
+             txtFldController_branch.text = _selectedBranch.locationAddress;
             // _selectedSubCat = value['subCatType'];
             _fetchBranchCompany();
           });
@@ -497,6 +503,7 @@ class _ScheduleViewState extends State<ScheduleView> {
 
           setState(() {
             _selectedService = value['data'];
+            txtFldController_services.text = _selectedService.serviceName;
           });
 
           break;
@@ -576,20 +583,28 @@ class _ScheduleViewState extends State<ScheduleView> {
     return Container(
       width: width,
       padding: const EdgeInsets.all(8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.start,
-        children: <Widget>[
-          const Text('Services:     '),
-          UiConstants.hor12SizedBox,
-          Expanded(
-            child: UiConstants.outLineBtn(
-                onPress: _buildServicePicker,
-                btnName: _selectedService != null
-                    ? _selectedService.serviceName
-                    : 'Please select a services'),
-          ),
-        ],
-      ),
+      child: 
+      TextFormField(
+        // initialValue: _selectedService != null
+        //             ? _selectedService.serviceName
+        //             : 'ALL',
+                    controller: txtFldController_services,
+                readOnly: true,
+                style: TextStyle(color: Colors.blueAccent, fontSize: 12.0),
+                  cursorColor: Colors.amber,
+                  keyboardType: TextInputType.number,
+                  onTap: _buildServicePicker,
+                  decoration: InputDecoration(
+                    
+                    border: OutlineInputBorder(),
+                    labelText: 'Services',
+                    
+                    // suffixText:
+                    //     GalleryLocalizations.of(context).demoTextFieldUSD,
+                  ),
+                  maxLines: 1,
+                ),
+     
     );
   }
 
@@ -597,18 +612,25 @@ class _ScheduleViewState extends State<ScheduleView> {
     return Container(
       width: width,
       padding: EdgeInsets.all(8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.start,
-        children: <Widget>[
-          const Text('Branch:     '),
-          UiConstants.hor12SizedBox,
-          Expanded(
-            child: UiConstants.outLineBtn(
-                onPress: _buildBranchPicker,
-                btnName: _selectedBranch.locationAddress),
-          ),
-        ],
-      ),
+      child: 
+      
+      TextFormField(//initialValue: _selectedBranch.locationAddress,
+                readOnly: true,
+                controller: txtFldController_branch,
+                style: TextStyle(color: Colors.blueAccent, fontSize: 12.0),
+                  cursorColor: Colors.amber,
+                  keyboardType: TextInputType.number,
+                  onTap: _buildBranchPicker,
+                  decoration: InputDecoration(
+                    
+                    border: OutlineInputBorder(),
+                    labelText: 'location',
+                    
+                    // suffixText:
+                    //     GalleryLocalizations.of(context).demoTextFieldUSD,
+                  ),
+                  maxLines: 1,
+                ),
     );
   }
 

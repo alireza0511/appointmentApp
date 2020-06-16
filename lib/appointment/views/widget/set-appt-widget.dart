@@ -7,6 +7,7 @@
 //
 // package
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../appointment/providers/appt-provier.dart';
 import 'package:flutter/material.dart';
@@ -28,16 +29,22 @@ class _SetApptWidgetState extends State<SetApptWidget> {
   final _txt1Focus = FocusNode();
   final _txt2Focus = FocusNode();
   final _txt3Focus = FocusNode();
+  final _txt1Controller = TextEditingController();
+  final _txt2Controller = TextEditingController();
+  final _txt3Controller = TextEditingController();
   Map<String, dynamic> body = {};
   var _isInit = true;
+  bool checkboxValue = true;
 
   @override
-  void didChangeDependencies() {
+  void didChangeDependencies() async{
     if (_isInit) {
       body['startTime'] = widget.body['startTime'];
       body['locationSlotTime'] = widget.body['locationSlotTime'];
       body['employeeId'] = widget.body['employeeId'];
       body['service'] = widget.body['service'];
+
+      await fetchUserDefualtData();
     }
     _isInit = false;
     super.didChangeDependencies();
@@ -58,14 +65,15 @@ class _SetApptWidgetState extends State<SetApptWidget> {
     if (!isValid) {
       return;
     }
-
-    //body[] = _promoInfo.id;
-
+   
     _form.currentState.save();
     print('\n----------' + body.toString());
-    // setState(() {
-    //   _isLoading = true;
-    // });
+   
+   if (checkboxValue){
+      setUserDefualtData();
+    } else {
+      
+    }
 
     try {
       var response = await Provider.of<ApptProvider>(context, listen: false)
@@ -90,7 +98,7 @@ class _SetApptWidgetState extends State<SetApptWidget> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text('Set Appointment'),
+      title: Text('Set Appointment', style: TextStyle(fontSize: 14, color: Colors.grey),),
       content: Form(
         key: _form,
         child: SingleChildScrollView(
@@ -101,6 +109,16 @@ class _SetApptWidgetState extends State<SetApptWidget> {
               _buildText1(context),
               _buildText2(context),
               _buildText3(context),
+              Row(mainAxisAlignment: MainAxisAlignment.start,
+                children: [
+                  Checkbox(value: checkboxValue, onChanged: (value){
+                    setState(() {
+                      checkboxValue = value;
+                    });
+                  }),
+                  Text('save information'),
+                ],
+              )
             ],
           ),
         ),
@@ -115,6 +133,7 @@ class _SetApptWidgetState extends State<SetApptWidget> {
         FlatButton(
           child: Text('Submit'),
           onPressed: () {
+
             _saveForm(context);
             //Navigator.of(context).pop();
 
@@ -134,11 +153,13 @@ class _SetApptWidgetState extends State<SetApptWidget> {
     return Padding(
       padding: const EdgeInsets.all(2.0),
       child: TextFormField(
-        // initialValue: _promoInfo.txt1,
+        style: TextStyle(color: Colors.blueAccent, fontSize: 12.0),
+        cursorColor: Colors.amber,
+        controller: _txt1Controller,
         decoration: const InputDecoration(
             border: OutlineInputBorder(),
             prefixIcon: Icon(Icons.person),
-            suffixStyle: TextStyle(color: Colors.blue),
+            suffixStyle: TextStyle(color: Colors.blueAccent),
             labelText: 'Name'),
         keyboardType: TextInputType.text,
         textInputAction: TextInputAction.next,
@@ -165,11 +186,13 @@ class _SetApptWidgetState extends State<SetApptWidget> {
     return Padding(
       padding: const EdgeInsets.all(2.0),
       child: TextFormField(
-        // initialValue: _promoInfo.txt1,
+        controller: _txt2Controller,
+        style: TextStyle(color: Colors.blueAccent, fontSize: 12.0),
+        cursorColor: Colors.amber,
         decoration: const InputDecoration(
             border: OutlineInputBorder(),
             prefixIcon: Icon(Icons.email),
-            suffixStyle: TextStyle(color: Colors.blue),
+            suffixStyle: TextStyle(color: Colors.blueAccent),
             labelText: 'Email'),
         keyboardType: TextInputType.emailAddress,
         textInputAction: TextInputAction.next,
@@ -194,12 +217,15 @@ class _SetApptWidgetState extends State<SetApptWidget> {
   Widget _buildText3(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.all(2.0),
+      
       child: TextFormField(
-        // initialValue: _promoInfo.txt1,
+        controller: _txt3Controller,
+        style: TextStyle(color: Colors.blueAccent, fontSize: 12.0),
+        cursorColor: Colors.amber,
         decoration: const InputDecoration(
             border: OutlineInputBorder(),
             prefixIcon: Icon(Icons.phone),
-            suffixStyle: TextStyle(color: Colors.blue),
+            suffixStyle: TextStyle(color: Colors.blueAccent),
             labelText: 'Phone'),
         keyboardType: TextInputType.phone,
         textInputAction: TextInputAction.done,
@@ -222,29 +248,32 @@ class _SetApptWidgetState extends State<SetApptWidget> {
     );
   }
 
-  void _updatePrefCodeFunc(BuildContext context) async {
-    try {
-      // 'phone': '3213213239',
-      // 'name': 'Ali',
-      // 'email': 'dsds@sds.com',
+  
+void fetchUserDefualtData() async {
+    final userDefualts = await SharedPreferences.getInstance();
 
-      //  var success = await Provider.of<AuthProviderCons>(context, listen: false)
-      //       .updateUserInfo(_prefCodeEntered);
-
-      // if (success) {
-      //   Provider.of<AuthProviderCons>(context, listen: false)
-      //       .fetchUserInfo()
-      //       .then((onValue) {
-      //     Navigator.of(context).pop();
-      //   });
-      // }
-
-    } on HttpMessageException catch (error) {
-      ErrorDialog.showErrorDialog(
-          ctx: context, title: 'Error!', message: error.toString());
-    } catch (error) {
-      ErrorDialog.showErrorDialog(
-          ctx: context, title: 'Error!', message: error.toString());
+    if (userDefualts.getString('name').isNotEmpty &&
+        userDefualts.getString('email').isNotEmpty &&
+        userDefualts.getString('phone').isNotEmpty) {
+      body['name'] = userDefualts.getString('name');
+      body['email'] = userDefualts.getString('email');
+      body['phone'] = userDefualts.getString('phone');
+      setState(() {
+        _txt1Controller.text = body['name'];
+        _txt2Controller.text = body['email'];
+        _txt3Controller.text = body['phone'];
+      });
     }
   }
+
+  void setUserDefualtData() async {
+    final userDefualts = await SharedPreferences.getInstance();
+
+    userDefualts.setString('name', body['name']);
+
+    userDefualts.setString('email', body['email']);
+
+    userDefualts.setString('phone', body['phone']);
+  }
+
 }

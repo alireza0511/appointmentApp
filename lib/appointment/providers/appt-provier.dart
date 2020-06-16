@@ -36,7 +36,7 @@ class ApptProvider with ChangeNotifier {
     var url = Uri.https(
         'node.jazzb.com','/appointment/user/employee/'+ companyId.toString());
 
-    print(ApptConstants.createHeader(_user.token));
+   
 
     try {
       final response = await http.get(url, headers: ApptConstants.createHeader(_user.token));
@@ -82,7 +82,7 @@ class ApptProvider with ChangeNotifier {
     print(url);
 
     try {
-      final response = await http.get(url);
+      final response = await http.get(url, headers: ApptConstants.createHeader(_user.token));
         
       if (response.statusCode < 200 || response.statusCode > 299) {
         Map<String, dynamic> body = json.decode(response.body);
@@ -123,7 +123,7 @@ class ApptProvider with ChangeNotifier {
     print(json.encode(body));
 
     try {
-      final response = await http.post(url, body: json.encode(body) ,headers: ApptConstants.createHeader());
+      final response = await http.post(url, body: json.encode(body) ,headers: ApptConstants.createHeader(_user.token));
       print(response.body);
       if (response.statusCode < 200 || response.statusCode > 299) {
         Map<String, dynamic> body = json.decode(response.body);
@@ -163,7 +163,7 @@ class ApptProvider with ChangeNotifier {
     print(json.encode(body));
 
     try {
-      final response = await http.put(url, body: json.encode(body) ,headers: ApptConstants.createHeader());
+      final response = await http.put(url, body: json.encode(body) ,headers: ApptConstants.createHeader(_user.token));
       print(response.body);
       if (response.statusCode < 200 || response.statusCode > 299) {
         Map<String, dynamic> body = json.decode(response.body);
