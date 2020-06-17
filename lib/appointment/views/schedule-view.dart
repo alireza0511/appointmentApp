@@ -256,6 +256,9 @@ class _ScheduleViewState extends State<ScheduleView> {
   }
 
   Widget _buildTimeSlotItem(context, i, ApptEmployeeStruct employeeStruct) {
+    
+    
+    
     var formatterdate = new DateFormat('h:mm a');
     DateTime theTimeSlot = employeeStruct.timeSlot[i];
     DateTime selecteTimeWithSlot = DateTime(
@@ -272,18 +275,7 @@ class _ScheduleViewState extends State<ScheduleView> {
     // List<AppointmentStruct> userApptAtCurrentSlotTime = new List<AppointmentStruct>();
     var userApptAtCurrentSlotTime;
 
-    // print('selecteTimeWithSlot : \n' +
-    //     selecteTimeWithSlot.millisecondsSinceEpoch.toString());
-    // employeeStruct.appointments != null
-    //     ? print('time slot lentgh : \n' +
-    //         employeeStruct.appointments[0].startTime.millisecondsSinceEpoch
-    //             .toString())
-    //     : print('');
-    // employeeStruct.appointments != null
-    //     ? print('time slot lentgh : \n' +
-    //         employeeStruct.appointments[1].startTime.millisecondsSinceEpoch
-    //             .toString())
-    //     : print('');
+    
     userApptAtCurrentSlotTime = employeeStruct.appointments != null
         ? employeeStruct.appointments.where((w) =>
             w.startTime.isAtSameMomentAs(selecteTimeWithSlot) ||
@@ -294,18 +286,40 @@ class _ScheduleViewState extends State<ScheduleView> {
 
     bool isTimeSlotActive = _selectedApptDate.day == DateTime.now().day
         ? hourNow < theTimeSlot.hour
-        : userApptAtCurrentSlotTime != null &&
-                userApptAtCurrentSlotTime.length > 0
-            ? false
-            : true;
-
+        // : userApptAtCurrentSlotTime != null &&
+        //         userApptAtCurrentSlotTime.length > 0
+            // ? false
+            : (_selectedApptDate.day >  DateTime.now().day ?true: false);
+    var timeSlotType = "";
+    var colorTimeSlot = isTimeSlotActive ? 
+        
+          Colors.blueAccent
+      
+         : Colors.grey;
+    if(isTimeSlotActive){
+      for(AppointmentStruct item in employeeStruct.appointments){
+        if ((selecteTimeWithSlot.isAfter(item.startTime) && selecteTimeWithSlot.isBefore(item.endTimeExpected)) || selecteTimeWithSlot.isAtSameMomentAs(item.startTime)){
+          if(item.verifiedByEmployee == null){
+            timeSlotType = 'reserve';
+            colorTimeSlot = Colors.yellow;
+          } else if (item.verifiedByEmployee){
+            timeSlotType = 'confirm';
+            colorTimeSlot = Colors.green;
+          } else if (!item.verifiedByEmployee){
+            timeSlotType = 'reject';
+            colorTimeSlot = Colors.red;
+          }
+        }
+      }
+    }
+   
     Map<String, dynamic> body = {
       'companyId': _companyInfo.companyId,
       'branchId': _selectedBranch.locationId,
       'startTime': selecteTimeWithSlot.toIso8601String(),
       'locationSlotTime': _companyInfo.apptCurrentBranch.locationSlotTime,
       'employeeId': employeeStruct.employeeId,
-      'service': _selectedService == null ? 'All' : _selectedService
+      'service': _selectedService 
     };
 
     return GestureDetector(
@@ -324,7 +338,7 @@ class _ScheduleViewState extends State<ScheduleView> {
         }
       },
       child: Card(
-        color: isTimeSlotActive ? Colors.blueAccent : Colors.grey,
+        color: colorTimeSlot,
         child: Container(
           margin: const EdgeInsets.all(10.0),
           child: ClipRRect(
@@ -483,24 +497,17 @@ class _ScheduleViewState extends State<ScheduleView> {
     ).then<void>((Map<String, dynamic> value) {
       switch (value['type']) {
         case PickerViewType.Branch:
-          // _companyForm[JazzbKeyConstants.catIdKey] = value['code'];
-          // _companyForm[JazzbKeyConstants.catTypeKey] = value['name'];
-
-          // _companyForm[JazzbKeyConstants.subCatIdKey] = value['subCatId'];
-          // _companyForm[JazzbKeyConstants.subCatTypeKey] = value['subCatType'];
+          
 
           setState(() {
             _selectedBranch = value['data'];
              txtFldController_branch.text = _selectedBranch.locationAddress;
-            // _selectedSubCat = value['subCatType'];
             _fetchBranchCompany();
           });
 
           break;
         case PickerViewType.Services:
-          // _companyForm[JazzbKeyConstants.subCatIdKey] = value['code'];
-          // _companyForm[JazzbKeyConstants.subCatTypeKey] = value['name'];
-
+          
           setState(() {
             _selectedService = value['data'];
             txtFldController_services.text = _selectedService.serviceName;
@@ -510,11 +517,7 @@ class _ScheduleViewState extends State<ScheduleView> {
         default:
       }
 
-      // updateCompany(body, _selectedCompany.id);
-      // Scaffold.of(context).showSnackBar(new SnackBar(
-      //   content: new Text('You clicked $value'),
-      //   duration: Duration(milliseconds: 800),
-      // ));
+     
     });
   }
 
@@ -528,6 +531,8 @@ class _ScheduleViewState extends State<ScheduleView> {
                 s.services.contains(_selectedService.serviceId) &&
                 s.employeeAvlWeekDays[_selectedWeekday - 1])
             .toList());
+
+           // var something = _companyInfo.apptCurrentBranch.userAppointment;
 
     return Expanded(
       child: Container(
@@ -551,12 +556,7 @@ class _ScheduleViewState extends State<ScheduleView> {
           ],
         ),
 
-        // ListView.builder(
-        //   scrollDirection: Axis.horizontal,
-        //   itemCount: employeeList.length,
-        //   itemBuilder: (_, i) =>
-        //       _buildEmployeeItem(context, i, employeeList, width),
-        // ),
+        
       ),
     );
   }
@@ -688,7 +688,7 @@ class _ScheduleViewState extends State<ScheduleView> {
   Column _buildPhoneScreen(double screenWidth) {
     return Column(
       children: <Widget>[
-        _userHasAppt ? _buildAlertApptContainer() : Container(),
+        //_userHasAppt ? _buildAlertApptContainer() : Container(),
         _buildBranchPickerView(screenWidth),
         _buildServicesPickerView(screenWidth),
         _buildDatePhone(screenWidth),
