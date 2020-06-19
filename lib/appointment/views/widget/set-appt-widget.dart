@@ -200,7 +200,7 @@ class _SetApptWidgetState extends State<SetApptWidget> {
           FocusScope.of(context).requestFocus(_txt3Focus);
         },
         validator: (value) {
-          if (value.isEmpty ||
+          if (!value.isEmpty &&
               !RegExp(r"[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?")
                   .hasMatch(value)) {
             return 'Please enter valid email address.';

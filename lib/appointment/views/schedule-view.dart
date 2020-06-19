@@ -7,6 +7,8 @@
 //
 // dart
 import 'dart:io';
+import 'package:appointment_app/appointment/models/appt-user-struct.dart';
+import 'package:appointment_app/appointment/providers/appt-auth-provider-.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:core';
 // package
@@ -29,6 +31,7 @@ import '../../appointment/views/widget/ui-constants.dart';
 import '../../appointment/views/widget/error-dialog.dart';
 
 enum PickerViewType { Branch, Services }
+enum TimeSlotType { Unavilable, Avilable, Reserve, Reject, Confirm }
 
 class ScheduleView extends StatefulWidget {
   const ScheduleView({Key key}) : super(key: key);
@@ -40,6 +43,7 @@ class ScheduleView extends StatefulWidget {
 }
 
 class _ScheduleViewState extends State<ScheduleView> {
+  ApptUserStruct _user;
   ApptCompanyStruct _companyInfo;
   String _appBarTitle = 'Schedule an appointment';
   String _appBarimage = '';
@@ -55,7 +59,6 @@ class _ScheduleViewState extends State<ScheduleView> {
   TextEditingController txtFldController_services = TextEditingController();
   TextEditingController txtFldController_branch = TextEditingController();
 
-
   @override
   void didChangeDependencies() async {
     if (_isInit) {
@@ -66,11 +69,15 @@ class _ScheduleViewState extends State<ScheduleView> {
       _fetchCompany();
       print('object');
 
+      _user = Provider.of<ApptAuthProvider>(context, listen: false).userInfo;
+
       setState(() {
+        DateTime now = new DateTime.now();
+        DateTime date = new DateTime(now.year, now.month, now.day);
         var today = DateTime.now();
         var formatter = new DateFormat.yMd().add_EEEE();
 
-        _selectedApptDate = today;
+        _selectedApptDate = date;
         _selectedWeekday = today.weekday;
         _selectedApptDateString = formatter.format(_selectedApptDate);
       });
@@ -84,7 +91,7 @@ class _ScheduleViewState extends State<ScheduleView> {
 
   void _fetchCompany() async {
     try {
-      var response = await Provider.of<ApptProvider>(context,listen: false)
+      var response = await Provider.of<ApptProvider>(context, listen: false)
           .fetchApptCompany(29.2344, -95.3434, 100, 1000);
       setState(() {
         _isLoading = false;
@@ -187,11 +194,11 @@ class _ScheduleViewState extends State<ScheduleView> {
         });
   }
 
-  GestureDetector _buildEmployeeItem(BuildContext context, double width) {
+  GestureDetector _buildEmployeeItem(BuildContext context, double width, List<ApptEmployeeStruct> list) {
     final employee = _selectedEmployee; //employeeList[i];
     final employeeFirstName = employee.firstName ?? ' ';
     final employeeLastName = employee.lastName ?? ' ';
-
+    bool hasEmployeeTimeSlot = list.contains(employee);
     return GestureDetector(
       onTap: () {
         // Navigator.of(context).pushNamed(DetailPromoViewCons.routeName,
@@ -224,7 +231,7 @@ class _ScheduleViewState extends State<ScheduleView> {
                 ),
               ),
             ),
-            Expanded(
+            hasEmployeeTimeSlot ? Expanded(
               child: Container(
                 child: GridView.builder(
                   shrinkWrap: true,
@@ -240,7 +247,7 @@ class _ScheduleViewState extends State<ScheduleView> {
                       _buildTimeSlotItem(context, j, employee),
                 ),
               ),
-            ),
+            ) : Expanded(child: Center(child: Container( padding: EdgeInsets.all(12),child: Text('${employeeFirstName} is not available at ${_selectedApptDateString}!', style: TextStyle(color: Colors.blueAccent, fontSize: 20),),))),
           ],
         ),
       ),
@@ -256,9 +263,8 @@ class _ScheduleViewState extends State<ScheduleView> {
   }
 
   Widget _buildTimeSlotItem(context, i, ApptEmployeeStruct employeeStruct) {
-    
-    
-    
+    TimeSlotType timeSlotType = TimeSlotType.Avilable;
+
     var formatterdate = new DateFormat('h:mm a');
     DateTime theTimeSlot = employeeStruct.timeSlot[i];
     DateTime selecteTimeWithSlot = DateTime(
@@ -275,7 +281,6 @@ class _ScheduleViewState extends State<ScheduleView> {
     // List<AppointmentStruct> userApptAtCurrentSlotTime = new List<AppointmentStruct>();
     var userApptAtCurrentSlotTime;
 
-    
     userApptAtCurrentSlotTime = employeeStruct.appointments != null
         ? employeeStruct.appointments.where((w) =>
             w.startTime.isAtSameMomentAs(selecteTimeWithSlot) ||
@@ -286,55 +291,90 @@ class _ScheduleViewState extends State<ScheduleView> {
 
     bool isTimeSlotActive = _selectedApptDate.day == DateTime.now().day
         ? hourNow < theTimeSlot.hour
-        // : userApptAtCurrentSlotTime != null &&
-        //         userApptAtCurrentSlotTime.length > 0
-            // ? false
-            : (_selectedApptDate.day >  DateTime.now().day ?true: false);
-    var timeSlotType = "";
-    var colorTimeSlot = isTimeSlotActive ? 
-        
-          Colors.blueAccent
-      
-         : Colors.grey;
-    if(isTimeSlotActive){
-      for(AppointmentStruct item in employeeStruct.appointments){
-        if ((selecteTimeWithSlot.isAfter(item.startTime) && selecteTimeWithSlot.isBefore(item.endTimeExpected)) || selecteTimeWithSlot.isAtSameMomentAs(item.startTime)){
-          if(item.verifiedByEmployee == null){
-            timeSlotType = 'reserve';
-            colorTimeSlot = Colors.yellow;
-          } else if (item.verifiedByEmployee){
-            timeSlotType = 'confirm';
-            colorTimeSlot = Colors.green;
-          } else if (!item.verifiedByEmployee){
-            timeSlotType = 'reject';
-            colorTimeSlot = Colors.red;
+        : (_selectedApptDate.day > DateTime.now().day ? true : false);
+    timeSlotType =
+        isTimeSlotActive ? TimeSlotType.Avilable : TimeSlotType.Unavilable;
+
+    var colorTimeSlot = isTimeSlotActive ? Colors.blueAccent : Colors.grey;
+    if (isTimeSlotActive) {
+      for (AppointmentStruct item in employeeStruct.appointments) {
+        if ((selecteTimeWithSlot.isAfter(item.startTime) &&
+                selecteTimeWithSlot.isBefore(item.endTimeExpected)) ||
+            selecteTimeWithSlot.isAtSameMomentAs(item.startTime)) {
+          if (item.client.clientId == _user.client.clientId) {
+            if (item.verifiedByEmployee == null) {
+              timeSlotType = TimeSlotType.Reserve;
+              colorTimeSlot = Colors.yellow;
+              isTimeSlotActive = false;
+            } else if (item.verifiedByEmployee) {
+              timeSlotType = TimeSlotType.Confirm;
+              colorTimeSlot = Colors.green;
+              isTimeSlotActive = false;
+            } else if (!item.verifiedByEmployee) {
+              timeSlotType = TimeSlotType.Reject;
+              colorTimeSlot = Colors.red;
+              isTimeSlotActive = false;
+            }
+          } else {
+            timeSlotType = TimeSlotType.Unavilable;
+              colorTimeSlot = Colors.grey;
+              isTimeSlotActive = false;
           }
         }
       }
     }
-   
+
     Map<String, dynamic> body = {
       'companyId': _companyInfo.companyId,
       'branchId': _selectedBranch.locationId,
       'startTime': selecteTimeWithSlot.toIso8601String(),
       'locationSlotTime': _companyInfo.apptCurrentBranch.locationSlotTime,
       'employeeId': employeeStruct.employeeId,
-      'service': _selectedService 
+      'service': _selectedService
     };
 
     return GestureDetector(
       onTap: () async {
-        if (isTimeSlotActive) {
-          var respoce = await _buildSubmitDialog(context, body);
+        switch (timeSlotType) {
+          case TimeSlotType.Avilable:
+            if (_userHasAppt) {
+              ErrorDialog.showErrorDialog(
+                  ctx: context,
+                  title: 'Alert',
+                  message: 'Please cancel your previous Appointment?');
+            } else {
+              var respoce = await _buildSubmitDialog(context, body);
 
-          setState(() {
-            isTimeSlotActive = !respoce;
-            _isLoading = true;
-          });
+              setState(() {
+                isTimeSlotActive = !respoce;
+                _isLoading = true;
+              });
 
-          if (respoce) {
-            _fetchCompany();
-          }
+              if (respoce) {
+                _fetchCompany();
+              }
+            }
+            break;
+          case TimeSlotType.Unavilable:
+            // do nothing
+            break;
+
+          default:
+            var respons = await ErrorDialog.showErrorOptionDialog(
+                ctx: context,
+                title: 'Confirm',
+                message: 'Are you sure you want to Cancel your Appointment?');
+            if (respons) {
+              setState(() {
+                _userHasAppt = false;
+              });
+
+              await _cancelApptUpdate();
+              
+              _fetchCompany();
+              
+            }
+          // cancel kama
         }
       },
       child: Card(
@@ -497,17 +537,14 @@ class _ScheduleViewState extends State<ScheduleView> {
     ).then<void>((Map<String, dynamic> value) {
       switch (value['type']) {
         case PickerViewType.Branch:
-          
-
           setState(() {
             _selectedBranch = value['data'];
-             txtFldController_branch.text = _selectedBranch.locationAddress;
+            txtFldController_branch.text = _selectedBranch.locationAddress;
             _fetchBranchCompany();
           });
 
           break;
         case PickerViewType.Services:
-          
           setState(() {
             _selectedService = value['data'];
             txtFldController_services.text = _selectedService.serviceName;
@@ -516,8 +553,6 @@ class _ScheduleViewState extends State<ScheduleView> {
           break;
         default:
       }
-
-     
     });
   }
 
@@ -532,7 +567,7 @@ class _ScheduleViewState extends State<ScheduleView> {
                 s.employeeAvlWeekDays[_selectedWeekday - 1])
             .toList());
 
-           // var something = _companyInfo.apptCurrentBranch.userAppointment;
+    // var something = _companyInfo.apptCurrentBranch.userAppointment;
 
     return Expanded(
       child: Container(
@@ -542,7 +577,7 @@ class _ScheduleViewState extends State<ScheduleView> {
           children: [
             Expanded(
               child: Container(
-                child: _buildEmployeeItem(context, width),
+                child: _buildEmployeeItem(context, width, employeeList),
               ),
             ),
             Container(
@@ -555,20 +590,22 @@ class _ScheduleViewState extends State<ScheduleView> {
             ),
           ],
         ),
-
-        
       ),
     );
   }
 
   Widget _buildDatePhone(double width) {
+    DateTime now = new DateTime.now();
+        DateTime today = new DateTime(now.year, now.month, now.day);
+
     return Container(
       width: width,
       padding: const EdgeInsets.all(8.0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.start,
         children: <Widget>[
-          iconBtn(btnIcon: Icons.arrow_back_ios, dateCount: -1),
+
+          _selectedApptDate != today ? iconBtn(btnIcon: Icons.arrow_back_ios, dateCount: -1) : Container(),
           Expanded(
             child: UiConstants.outLineBtn(
                 onPress: _buildDatePicker, btnName: _selectedApptDateString),
@@ -583,28 +620,25 @@ class _ScheduleViewState extends State<ScheduleView> {
     return Container(
       width: width,
       padding: const EdgeInsets.all(8),
-      child: 
-      TextFormField(
+      child: TextFormField(
         // initialValue: _selectedService != null
         //             ? _selectedService.serviceName
         //             : 'ALL',
-                    controller: txtFldController_services,
-                readOnly: true,
-                style: TextStyle(color: Colors.blueAccent, fontSize: 12.0),
-                  cursorColor: Colors.amber,
-                  keyboardType: TextInputType.number,
-                  onTap: _buildServicePicker,
-                  decoration: InputDecoration(
-                    
-                    border: OutlineInputBorder(),
-                    labelText: 'Services',
-                    
-                    // suffixText:
-                    //     GalleryLocalizations.of(context).demoTextFieldUSD,
-                  ),
-                  maxLines: 1,
-                ),
-     
+        controller: txtFldController_services,
+        readOnly: true,
+        style: TextStyle(color: Colors.blueAccent, fontSize: 12.0),
+        cursorColor: Colors.amber,
+        keyboardType: TextInputType.number,
+        onTap: _buildServicePicker,
+        decoration: InputDecoration(
+          border: OutlineInputBorder(),
+          labelText: 'Services',
+
+          // suffixText:
+          //     GalleryLocalizations.of(context).demoTextFieldUSD,
+        ),
+        maxLines: 1,
+      ),
     );
   }
 
@@ -612,74 +646,86 @@ class _ScheduleViewState extends State<ScheduleView> {
     return Container(
       width: width,
       padding: EdgeInsets.all(8),
-      child: 
-      
-      TextFormField(//initialValue: _selectedBranch.locationAddress,
-                readOnly: true,
-                controller: txtFldController_branch,
-                style: TextStyle(color: Colors.blueAccent, fontSize: 12.0),
-                  cursorColor: Colors.amber,
-                  keyboardType: TextInputType.number,
-                  onTap: _buildBranchPicker,
-                  decoration: InputDecoration(
-                    
-                    border: OutlineInputBorder(),
-                    labelText: 'location',
-                    
-                    // suffixText:
-                    //     GalleryLocalizations.of(context).demoTextFieldUSD,
-                  ),
-                  maxLines: 1,
-                ),
+      child: TextFormField(
+        //initialValue: _selectedBranch.locationAddress,
+        readOnly: true,
+        controller: txtFldController_branch,
+        style: TextStyle(color: Colors.blueAccent, fontSize: 12.0),
+        cursorColor: Colors.amber,
+        keyboardType: TextInputType.number,
+        onTap: _buildBranchPicker,
+        decoration: InputDecoration(
+          border: OutlineInputBorder(),
+          labelText: 'location',
+
+          // suffixText:
+          //     GalleryLocalizations.of(context).demoTextFieldUSD,
+        ),
+        maxLines: 1,
+      ),
     );
   }
 
-  Container _buildAlertApptContainer() {
+  GestureDetector _buildAlertApptContainer() {
     var theTime = _companyInfo.apptCurrentBranch.userAppointment.startTime;
     var formatterdate = new DateFormat.yMMMMEEEEd().add_jm();
     String theTimeString = formatterdate.format(theTime);
+    var userApptType =
+        _companyInfo.apptCurrentBranch.userAppointment.verifiedByEmployee;
+    var containerColor = Colors.yellow;
+    var textmsg = Text(
+      'You already set an appointment on ${theTimeString}.',
+      style: TextStyle(
+        color: Colors.white,
+      ),
+    );
+    if (userApptType == null) {
+      containerColor = Colors.yellow;
+      textmsg = Text(
+        'You already set an appointment on ${theTimeString}.',
+        style: TextStyle(
+          color: Colors.blueAccent,
+        ),
+      );
+    } else if (userApptType) {
+      containerColor = Colors.green;
+      textmsg = Text(
+        'Your appointment on ${theTimeString} was confirmed by employee.',
+        style: TextStyle(
+          color: Colors.white,
+        ),
+      );
+    } else {
+      containerColor = Colors.red;
+      textmsg = Text(
+        'Your appointment on ${theTimeString} was rejected by employee.',
+        style: TextStyle(
+          color: Colors.white,
+        ),
+      );
+    }
 
-    return Container(
-      color: Colors.red,
-      child: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Text(
-              'Appointment Details',
-              style:
-                  TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-            ),
-            SizedBox(
-              height: 6,
-            ),
-            Text(
-              'You already set an appointment on ${theTimeString}.',
-              style: TextStyle(
-                color: Colors.white,
-              ),
-            ),
-            SizedBox(
-              height: 12,
-            ),
-            FlatButton(
-              onPressed: () async {
-                setState(() {
-                  _userHasAppt = false;
-                });
+    return GestureDetector(
+      onTap: () async {
+        var respons = await ErrorDialog.showErrorOptionDialog(
+            ctx: context,
+            title: 'Confirm',
+            message: 'Are you sure you want to Cancel your Appointment?');
+        if (respons) {
+          setState(() {
+            _userHasAppt = false;
+          });
 
-                await _cancelApptUpdate();
-              },
-              child: Text(
-                'Cancel',
-                style: TextStyle(
-                  color: Colors.red,
-                ),
-              ),
-              color: Colors.white,
-            )
-          ],
+          await _cancelApptUpdate();
+
+          _fetchCompany();
+        }
+      },
+      child: Container(
+        color: containerColor,
+        child: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: textmsg,
         ),
       ),
     );
@@ -688,7 +734,7 @@ class _ScheduleViewState extends State<ScheduleView> {
   Column _buildPhoneScreen(double screenWidth) {
     return Column(
       children: <Widget>[
-        //_userHasAppt ? _buildAlertApptContainer() : Container(),
+        _userHasAppt ? _buildAlertApptContainer() : Container(),
         _buildBranchPickerView(screenWidth),
         _buildServicesPickerView(screenWidth),
         _buildDatePhone(screenWidth),

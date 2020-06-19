@@ -65,9 +65,10 @@ class Home extends StatelessWidget {
   }
 
   Future<bool> _login(BuildContext context) async {
+    var timeString = DateTime.now().day.toString();
     try {
       await Provider.of<ApptAuthProvider>(context, listen: false)
-          .authenticate('webversionofapplication');
+          .authenticate('uuid'+ timeString);
       return true;
     } on HttpException catch (error) {
       ErrorDialog.showErrorDialog(
